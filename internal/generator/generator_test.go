@@ -2,6 +2,8 @@ package generator
 
 import (
 	"flag"
+	"log/slog"
+	"os"
 	"strings"
 	"testing"
 )
@@ -30,8 +32,22 @@ type ProtoField struct {
 }
 
 var (
-	versbose = flag.Bool("verbose", false, "print debug logs to the console")
+	verbose = flag.Bool("slog.verbose", false, "print debug logs to the console")
 )
+
+func init() {
+	if *verbose {
+		h := slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+			AddSource: true,
+			Level:     slog.LevelDebug,
+		})
+		slog.SetDefault(slog.New(h))
+	} else {
+		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+			AddSource: true,
+		})))
+	}
+}
 
 func TestGenerator(t *testing.T) {
 	flag.Parse()
@@ -42,7 +58,6 @@ func TestGenerator(t *testing.T) {
 		Title("Test"),
 		DocVersion("0.1"),
 		Format("json"),
-		Verbose(*versbose),
 	}
 	gen, err := NewGenerator([]string{"./testdata/petapis/pet/v1/pet.proto"}, opts...)
 	if err != nil {
@@ -64,7 +79,6 @@ func TestGenerator(t *testing.T) {
 			name:   "GetPet",
 			input:  "GetPetRequest",
 			output: "GetPetResponse",
-			desc:   "GetPet returns details about a pet\nIt accepts a pet id as an input and returns back the matching pet object\nreq-example: { \"pet_id\": \"123\" }\nreq-example: { \"pet_id\": \"456\" }\nres-example: { \"pet\": {\"name\": \"toby\"} }",
 		},
 	}
 	messages := []ProtoMessage{

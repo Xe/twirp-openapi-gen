@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -36,12 +37,12 @@ func (gen *generator) Handlers() []proto.Handler {
 }
 
 func (gen *generator) Package(pkg *proto.Package) {
-	logger.logd("Package handler %q", pkg.Name)
+	slog.Debug("Package handler", "package", pkg.Name)
 	gen.packageName = pkg.Name
 }
 
 func (gen *generator) Import(i *proto.Import) {
-	logger.logd("Import handler %q %q", gen.packageName, i.Filename)
+	slog.Debug("Import handler", "package", gen.packageName, "filename", i.Filename)
 
 	if _, ok := gen.importedFiles[i.Filename]; ok {
 		return
@@ -56,7 +57,7 @@ func (gen *generator) Import(i *proto.Import) {
 
 	protoFile, err := readProtoFile(i.Filename, gen.conf.protoPaths)
 	if err != nil {
-		logger.log("could not import file %q", i.Filename)
+		slog.Error("could not import file", "filename", i.Filename, "error", err)
 		return
 	}
 
@@ -80,7 +81,7 @@ func (gen *generator) Import(i *proto.Import) {
 }
 
 func (gen *generator) RPC(rpc *proto.RPC) {
-	logger.logd("RPC handler %q %q %q %q", gen.packageName, rpc.Name, rpc.RequestType, rpc.ReturnsType)
+	slog.Debug("RPC handler", "package", gen.packageName, "rpc", rpc.Name, "requestType", rpc.RequestType, "returnsType", rpc.ReturnsType)
 
 	parent, ok := rpc.Parent.(*proto.Service)
 	if !ok {
@@ -105,10 +106,18 @@ func (gen *generator) RPC(rpc *proto.RPC) {
 	case "google.protobuf.Empty":
 		resMediaType = openapi3.NewMediaType()
 	default:
-		resMediaType = &openapi3.MediaType{
-			Schema: &openapi3.SchemaRef{
-				Ref: fmt.Sprintf("#/components/schemas/%s.%s", gen.packageName, rpc.ReturnsType),
-			},
+		if strings.HasPrefix(rpc.ReturnsType, gen.packageName) {
+			resMediaType = &openapi3.MediaType{
+				Schema: &openapi3.SchemaRef{
+					Ref: fmt.Sprintf("#/components/schemas/%s", rpc.ReturnsType),
+				},
+			}
+		} else {
+			resMediaType = &openapi3.MediaType{
+				Schema: &openapi3.SchemaRef{
+					Ref: fmt.Sprintf("#/components/schemas/%s.%s", gen.packageName, rpc.ReturnsType),
+				},
+			}
 		}
 	}
 
@@ -156,7 +165,7 @@ func (gen *generator) RPC(rpc *proto.RPC) {
 }
 
 func (gen *generator) Enum(enum *proto.Enum) {
-	logger.logd("Enum handler %q %q", gen.packageName, enum.Name)
+	slog.Debug("Enum handler", "package", gen.packageName, "enum", enum.Name)
 	values := []interface{}{}
 	for _, element := range enum.Elements {
 		enumField := element.(*proto.EnumField)
@@ -173,7 +182,7 @@ func (gen *generator) Enum(enum *proto.Enum) {
 }
 
 func (gen *generator) Message(msg *proto.Message) {
-	logger.logd("Message handler %q %q", gen.packageName, msg.Name)
+	slog.Debug("Message handler", "package", gen.packageName, "message", msg.Name)
 
 	schemaProps := openapi3.Schemas{}
 
@@ -196,7 +205,7 @@ func (gen *generator) Message(msg *proto.Message) {
 			//logger.logd("proto.NormalField %q %q", val.Field.Type, val.Field.Name)
 			gen.addField(schemaProps, val.Field, val.Repeated)
 		default:
-			logger.logd("unknown field type: %T", element)
+			slog.Error("unknown field type", "type", fmt.Sprintf("%T", element))
 		}
 	}
 
@@ -251,23 +260,23 @@ func (gen *generator) addField(schemaPropsV3 openapi3.Schemas, field *proto.Fiel
 
 	// generate the schema for google well known complex types: https://protobuf.dev/reference/protobuf/google.protobuf/#index
 	case googleAnyType:
-		logger.logd("Any - %s type:%q, format:%q", fieldName, fieldType, fieldFormat)
+		slog.Debug("any", "name", fieldName, "type", fieldType, "format", fieldFormat)
 		gen.addGoogleAnySchema()
 	case googleListValueType:
-		logger.logd("ListValue - %s type:%q, format:%q", fieldName, fieldType, fieldFormat)
+		slog.Debug("ListValue", "name", fieldName, "type", fieldType, "format", fieldFormat)
 		gen.addGoogleListValueSchema()
 	case googleStructType:
-		logger.logd("Struct - %s type:%q, format:%q", fieldName, fieldType, fieldFormat)
+		slog.Debug("Struct", "name", fieldName, "type", fieldType, "format", fieldFormat)
 		gen.addGoogleValueSchema() // struct depends on value
 		gen.addGoogleStructSchema()
 	case googleValueType:
-		logger.logd("Value - %s type:%q, format:%q", fieldName, fieldType, fieldFormat)
+		slog.Debug("Value", "name", fieldName, "type", fieldType, "format", fieldFormat)
 		gen.addGoogleValueSchema()
 	case googleMoneyType:
-		logger.logd("Money - %s type:%q, format:%q", fieldName, fieldType, fieldFormat)
+		slog.Debug("Money", "name", fieldName, "type", fieldType, "format", fieldFormat)
 		gen.addGoogleMoneySchema()
 	default:
-		logger.logd("DEFAULT %s type:%q, format:%q", fieldName, fieldType, fieldFormat)
+		slog.Debug("Default", "name", fieldName, "type", fieldType, "format", fieldFormat)
 	}
 
 	// prefix custom types with the package name

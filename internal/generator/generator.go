@@ -3,6 +3,7 @@ package generator
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -10,8 +11,6 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/invopop/yaml"
 )
-
-var logger Lg
 
 type generatorConfig struct {
 	protoPaths []string
@@ -67,13 +66,6 @@ func Format(format string) Option {
 	}
 }
 
-func Verbose(verbose bool) Option {
-	return func(config *generatorConfig) error {
-		logger.verbose = verbose
-		return nil
-	}
-}
-
 type generator struct {
 	openAPIV3 *openapi3.T
 
@@ -112,7 +104,7 @@ func NewGenerator(inputFiles []string, options ...Option) (*generator, error) {
 		openAPIV3.Servers = append(openAPIV3.Servers, &openapi3.Server{URL: server})
 	}
 
-	logger.logd("generating %q doc for %v", conf.format, inputFiles)
+	slog.Debug("generating doc", "format", conf.format, "inputFiles", inputFiles)
 
 	return &generator{
 		inputFiles:    inputFiles,
@@ -143,7 +135,7 @@ func (gen *generator) Parse() (*openapi3.T, error) {
 		proto.Walk(protoFile, gen.Handlers()...)
 	}
 
-	logger.logd("generated %d path(s) and %d component(s)", len(gen.openAPIV3.Paths), len(gen.openAPIV3.Components.Schemas))
+	slog.Debug("generated", "paths", len(gen.openAPIV3.Paths), "components", len(gen.openAPIV3.Components.Schemas))
 	return gen.openAPIV3, nil
 }
 

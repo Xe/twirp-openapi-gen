@@ -74,7 +74,9 @@ var typeAliases = map[string]struct {
 		Type:   "boolean",
 		Format: "boolean",
 	},
-	"google.protobuf.Empty": {},
+	"google.protobuf.Empty": {
+		Type: "object",
+	},
 
 	"google.type.DateTime": {
 		Type:   "string",
