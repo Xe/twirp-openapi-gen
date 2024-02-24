@@ -1,6 +1,6 @@
-module github.com/blockthrough/twirp-openapi-gen
+module github.com/Xe/twirp-openapi-gen
 
-go 1.20
+go 1.22
 
 require (
 	github.com/emicklei/proto v1.11.2
