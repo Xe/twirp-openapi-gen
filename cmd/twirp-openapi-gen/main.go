@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -39,6 +40,19 @@ func run(args []string) error {
 	verbose := flags.Bool("verbose", false, "Log debug output")
 	printVersion := flags.Bool("version", false, "Print version")
 
+	var h slog.Handler
+	h = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelInfo,
+	})
+	if *verbose {
+		h = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			AddSource: true,
+			Level:     slog.LevelDebug,
+		})
+	}
+	slog.SetDefault(slog.New(h))
+
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -55,7 +69,6 @@ func run(args []string) error {
 		generator.DocVersion(*docVersion),
 		generator.PathPrefix(*pathPrefix),
 		generator.Format(*format),
-		generator.Verbose(*verbose),
 	}
 	gen, err := generator.NewGenerator(in, opts...)
 	if err != nil {
